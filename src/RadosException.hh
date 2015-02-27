@@ -32,12 +32,12 @@ namespace rados {
   //----------------------------------------------------------------------------
   //! Exception thrown in object constructor
   //----------------------------------------------------------------------------
-  struct ConstructorException: public std::exception
+  struct RadosContainerException: public std::exception
   {
     //--------------------------------------------------------------------------
     //! Default constructor
     //--------------------------------------------------------------------------
-    ConstructorException():
+    RadosContainerException():
       std::exception()
     {
     }
@@ -48,7 +48,7 @@ namespace rados {
     //! @param reason Reason for the exception
     //--------------------------------------------------------------------------
 
-    ConstructorException(std::string&& reason):
+    RadosContainerException(std::string&& reason):
       std::exception(),
       mReason(std::move(reason))
     {
@@ -56,13 +56,12 @@ namespace rados {
 
     const char* what() const noexcept
     {
-      std::string why = "Failed constructor, reason:";
+      std::string why = "Exception reason:";
       why += mReason;
       return why.c_str();
     }
 
     std::string mReason;
   };
-
 }
 #endif // __RADOSEXCEPTION_HH__

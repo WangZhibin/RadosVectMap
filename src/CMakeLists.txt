@@ -21,13 +21,14 @@
 #* along with this program. If not, see <http://www.gnu.org/licenses/>.        *
 #******************************************************************************/
 
-set (CEPHVECTMAP_SRCS RadosMap.cc)
-set (CEPHVECTMAP_HDRS RadosMap.hh)
+include_directories(${LIBRADOS_INCLUDE_DIRS})
+
+set(CEPHVECTMAP_SRCS
+  RadosMap.cc)
 
 add_library(
   CephVectMap SHARED
-  ${CEPHVECTMAP_SRCS}
-  ${CEPHVECTMAP_HDRS})
+  ${CEPHVECTMAP_SRCS})
 
 target_link_libraries(
   CephVectMap

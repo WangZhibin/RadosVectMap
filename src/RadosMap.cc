@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-// File: RadosMap.hh
+// File: RadosMap.cc
 // Author: Elvin Sindrilaru <esindril@cern.ch>
 //------------------------------------------------------------------------------
 
@@ -21,10 +21,4 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.        *
  ******************************************************************************/
 
-#include <climits>
 #include "RadosMap.hh"
-
-namespace rados
-{
-
-}

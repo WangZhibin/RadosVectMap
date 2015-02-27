@@ -24,7 +24,7 @@
 #-------------------------------------------------------------------------------
 # Project description
 #-------------------------------------------------------------------------------
-cmake_minimum_required( VERSION 2.6 )
+cmake_minimum_required( VERSION 2.8.11 )
 project(CephVectMap)
 
 set(VERSION_MAJOR "0")
@@ -57,10 +57,11 @@ find_package(LibRados REQUIRED)
 #-------------------------------------------------------------------------------
 # Build in subdirectories
 #-------------------------------------------------------------------------------
-add_subdirectory( src )
+add_subdirectory(src)
 
 if(BUILD_TESTS)
-  ENABLE_TESTING()
+  find_package(GTest REQUIRED)
+  enable_testing()
   add_subdirectory(tests)
 endif()
 
