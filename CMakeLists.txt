@@ -4,7 +4,7 @@
 #------------------------------------------------------------------------------
 
 #*******************************************************************************
-#* CephVectMap                                                                 *
+#* RadosVectMap                                                                 *
 #* Copyright (C) 2015 CERN/Switzerland                                         *
 #*                                                                             *
 #* This program is free software: you can redistribute it and/or modify        *
@@ -25,7 +25,7 @@
 # Project description
 #-------------------------------------------------------------------------------
 cmake_minimum_required( VERSION 2.8.11 )
-project(CephVectMap)
+project(RadosVectMap)
 
 set(VERSION_MAJOR "0")
 set(VERSION_MINOR "1")
@@ -41,9 +41,9 @@ set(CMAKE_MODULE_PATH
    ${PROJECT_SOURCE_DIR}/src
    ${PROJECT_SOURCE_DIR}/cmake)
 
-include(CephVectMapUtils)
+include(RadosVectMapUtils)
 CheckBuildDirectory()
-include(CephVectMapOSDefs)
+include(RadosVectMapOSDefs)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE RelWithDebug)
@@ -65,7 +65,7 @@ if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-include(CephVectMapSummary)
+include(RadosVectMapSummary)
 
 #-------------------------------------------------------------------------------
 # Create uninstall target

@@ -58,15 +58,16 @@ namespace rados {
     //! @param pool_name name of the pool the map obj will be in
     //! @param name name of the map
     //! @param cookie application identifier
-    //! @param pbo persist backend object (delete or not obj. holding the map)
-    //! @param ch_log mark every map operation in the object itself as a changelog
+    //! @param persist_obj persist backend obj. (delete or not obj. holding the map)
+    //!
+    //! TODO: add param weak consistency when all operations are done async.
+    //!
     //--------------------------------------------------------------------------
     map(librados::Rados& rados_cluster,
         const std::string& pool_name,
         const std::string& name,
         const std::string& cookie,
-        bool pbo = true,
-        bool ch_log = false) noexcept(false);
+        bool persist_obj = true) noexcept(false);
 
 
     //--------------------------------------------------------------------------
@@ -205,7 +206,6 @@ namespace rados {
     std::map<K, V> mMap; ///< local representation of the map
     std::string mObjId;  ///< object id that holds the map information
     librados::IoCtx mIoCtx; ///< io context
-    bool mUseChangeLog; ///< use a changelog for map updates
     bool mPersistObj; /// < persist backend object (CEPH)
     uint64_t mEpoch; ///< current epoch of the local map
     uint64_t mChLogOff; ///< changelog offset of followed updates
@@ -316,10 +316,8 @@ namespace rados {
                  const std::string& pool_name,
                  const std::string& name,
                  const std::string& cookie,
-                 bool pbo,
-                 bool ch_log) noexcept(false):
-    mUseChangeLog(ch_log),
-    mPersistObj(pbo),
+                 bool persist_obj) noexcept(false):
+    mPersistObj(persist_obj),
     mEpoch(0),
     mChLogOff(0),
     mChLogNumLines(0)
