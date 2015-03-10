@@ -22,18 +22,59 @@
  ******************************************************************************/
 
 #include <tuple>
+#include <chrono>
+#include <algorithm>
+#include <type_traits>
+#include <functional>
 #include <gtest/gtest.h>
 #include "RadosMapTest.hh"
 #include "src/RadosMap.hh"
+
 
 //------------------------------------------------------------------------------
 // Create map
 //------------------------------------------------------------------------------
 TEST_F(RadosMapTest, DISABLED_ListMap)
 {
-  for (auto&& iter: *mMapSS)
+  for (auto const &iter: *mMapSS)
     fprintf(stdout, "key -> %s ..... value -> %s\n", iter.first.c_str(),
             iter.second.c_str());
+}
+
+//------------------------------------------------------------------------------
+// Check for supported template parameter types
+//------------------------------------------------------------------------------
+TEST_F(RadosMapTest, CheckTemplateParam)
+{
+  try
+  {
+    rados::map<std::string, int> unsupp_map(mCluster, mConfig["pool"],
+                                            mConfig["obj_name"], "cookie1", false);
+  }
+  catch (rados::RadosContainerException& e)
+  {
+    ASSERT_STREQ("Exception reason: unsupported template parameter type", e.what());
+  }
+
+  try
+  {
+    rados::map<int, std::string> unsupp_map(mCluster, mConfig["pool"],
+                                            mConfig["obj_name"], "cookie1", false);
+  }
+  catch (rados::RadosContainerException& e)
+  {
+    ASSERT_STREQ("Exception reason: unsupported template parameter type", e.what());
+  }
+
+  try
+  {
+    rados::map<bool, std::string> unsupp_map(mCluster, mConfig["pool"],
+                                             mConfig["obj_name"], "cookie1", false);
+  }
+  catch (rados::RadosContainerException& e)
+  {
+    ASSERT_STREQ("Exception reason: unsupported template parameter type", e.what());
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -41,10 +82,31 @@ TEST_F(RadosMapTest, DISABLED_ListMap)
 //------------------------------------------------------------------------------
 TEST_F(RadosMapTest, InsertInMap)
 {
-  ASSERT_EQ(0, mMapSS->size());
-  mMapSS->insert("layout", "replica");
-  mMapSS->insert("stripes", "3");
-  ASSERT_EQ(2, mMapSS->size());
+  int start {261000};
+  int num_entries {1000};
+  int end = start + num_entries;
+  std::string key, val;
+  decltype(mMapSS->insert(key, val)) ret_pair;
+  std::vector<double> tm_insert; // in microseconds
+
+  for (int i = start; i < end; ++i)
+  {
+    key = "key_"; key += std::to_string(i);
+    val = "value_"; val += std::to_string(i);
+    auto duration = timethis([&] { ret_pair =  mMapSS->insert(key, val); });
+    ASSERT_TRUE(ret_pair.second);
+    tm_insert.push_back((double)duration / 1000.0);
+  }
+
+  //ASSERT_EQ(num_entries, mMapSS->size());
+
+  // Analyse the insert performance
+  auto max_val = std::max_element(std::begin(tm_insert), std::end(tm_insert));
+  auto min_val = std::min_element(std::begin(tm_insert), std::end(tm_insert));
+  auto info_stat = compute_statistics(tm_insert);
+  fprintf(stdout, "Insert num_entries=%i, max=%f, min=%f, mean=%f, "
+          "std=%f (microsec)\n", num_entries, *max_val, *min_val,
+            info_stat.first, info_stat.second);
 }
 
 //------------------------------------------------------------------------------
@@ -52,15 +114,30 @@ TEST_F(RadosMapTest, InsertInMap)
 //------------------------------------------------------------------------------
 TEST_F(RadosMapTest, EraseFromMap)
 {
-  mMapSS->erase("layout");
-  mMapSS->erase("stripes");
-  ASSERT_EQ(0, mMapSS->size());
+  int num_entries {1000};
+  std::vector<double> tm_erase;
+  auto it = mMapSS->begin();
+
+  while ((it != mMapSS->end()) && (num_entries >= 0))
+  {
+    num_entries--;
+    auto duration = timethis([&] { mMapSS->erase(it++); });
+    tm_erase.push_back((double) duration / 1000.0);
+  }
+
+  //ASSERT_EQ(0, mMapSS->size());
+  auto max_val = std::max_element(std::begin(tm_erase), std::end(tm_erase));
+  auto min_val = std::min_element(std::begin(tm_erase), std::end(tm_erase));
+  auto info_stat = compute_statistics(tm_erase);
+  fprintf(stdout, "Erase num_entries=%i, max=%f, min=%f, mean=%f, "
+          "std=%f (microsec)\n", num_entries, *max_val, *min_val,
+            info_stat.first, info_stat.second);
 }
 
 //------------------------------------------------------------------------------
 // Test conversion from different objects to string
 //------------------------------------------------------------------------------
-TEST_F(RadosMapTest, StringConversions)
+TEST_F(RadosMapTest, DISABLED_StringConversions)
 {
   std::string str;
   std::tuple<double, float, uint64_t> tuple (0xffffffffffffffff,
@@ -68,18 +145,18 @@ TEST_F(RadosMapTest, StringConversions)
                                              0xffffffffffffffff);
 
   str = mMapSS->ToString(std::get<0>(tuple));
-  ASSERT_EQ("18446744073709551616.000000", str);
+  ASSERT_TRUE("18446744073709551616.000000" == str);
   str = mMapSS->ToString(std::get<1>(tuple));
-  ASSERT_EQ("4294967296.000000", str);
+  ASSERT_TRUE("4294967296.000000" == str);
   str = mMapSS->ToString(std::get<2>(tuple));
-  ASSERT_EQ("18446744073709551615", str);
+  ASSERT_TRUE("18446744073709551615" == str);
 
   double val_double = mMapSS->FromString<double>("18446744073709551616.000000");
-  ASSERT_EQ((double)(0xffffffffffffffff), val_double);
+  ASSERT_DOUBLE_EQ((double)(0xffffffffffffffff), val_double);
   float val_float = mMapSS->FromString<float>("4294967296.000000");
-  ASSERT_TRUE((float)(0x00000000ffffffff) == val_float);
+  ASSERT_FLOAT_EQ((float)(0x00000000ffffffff), val_float);
   uint64_t val_uint64 = mMapSS->FromString<uint64_t>("18446744073709551615");
-  ASSERT_TRUE((uint64_t)(0xffffffffffffffff) == val_uint64);
+  ASSERT_EQ((uint64_t)(0xffffffffffffffff),  val_uint64);
 }
 
 //------------------------------------------------------------------------------

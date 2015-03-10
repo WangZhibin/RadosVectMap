@@ -30,7 +30,31 @@
 
 #define ENV_CONF_FILE "TEST_CONF_FILE"
 
+//------------------------------------------------------------------------------
+//! Function that times the execution of another arbitrary function
+//!
+//! @param takes any function which returns void and takes no arguments
+//!
+//! @returns the execution time of the function in nanoseconds
+//------------------------------------------------------------------------------
+auto timethis(std::function<void()> exec_func)
+  -> decltype((std::chrono::steady_clock::now() -
+               std::chrono::steady_clock::now()).count()) ;
 
+//------------------------------------------------------------------------------
+//! Compute statistics based on the information in the container
+//!
+//! @param container holding the data
+//!
+//! @return pair of values representing the mean and standard deviation of the
+//!         data points
+//------------------------------------------------------------------------------
+template <typename Container>
+std::pair<double, double> compute_statistics(const Container& c);
+
+//------------------------------------------------------------------------------
+//! Class RadosMapTest
+//------------------------------------------------------------------------------
 class RadosMapTest: public testing::Test
 {
 public:
@@ -38,14 +62,14 @@ public:
   //! Constructor
   //----------------------------------------------------------------------------
   RadosMapTest() noexcept(false);
-  
+
   //----------------------------------------------------------------------------
   //! Desstructor
   //----------------------------------------------------------------------------
   virtual ~RadosMapTest();
 
 protected:
-  
+
   void SetUp();
 
   void TearDown();
@@ -57,10 +81,29 @@ protected:
 private:
 
   //----------------------------------------------------------------------------
-  //! Read in test configuration specified in the environment variable 
+  //! Read in test configuration specified in the environment variable
   //! ENV_CONF_FILE
   //----------------------------------------------------------------------------
   void ReadConfiguration();
 };
+
+
+//------------------------------------------------------------------------------
+// Compute statistics based on the information in the container
+//------------------------------------------------------------------------------
+template <typename Container>
+std::pair<double, double> compute_statistics(const Container& c)
+{
+  auto sum = std::accumulate(std::begin(c), std::end(c), double());
+  auto size = std::distance(std::begin(c), std::end(c));
+  auto mean = sum / c.size();
+  double accum = 0.0;
+
+  for(auto const &elem: c)
+    accum += (elem - mean) * (elem - mean);
+
+  return std::make_pair(mean, std::sqrt(accum / ( size - 1)));
+}
+
 
 #endif // __RADOSMAPTEST_HH__

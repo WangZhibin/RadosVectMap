@@ -56,7 +56,7 @@ namespace rados {
 
     const char* what() const noexcept
     {
-      std::string why = "Exception reason:";
+      std::string why = "Exception reason: ";
       why += mReason;
       return why.c_str();
     }

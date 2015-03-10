@@ -23,7 +23,23 @@
 
 #include <fstream>
 #include <iostream>
+#include <numeric>
+#include <cmath>
 #include "RadosMapTest.hh"
+
+//------------------------------------------------------------------------------
+// Function that times the execution of another arbitrary function
+//------------------------------------------------------------------------------
+auto timethis(std::function<void()> exec_func)
+  -> decltype((std::chrono::steady_clock::now() -
+               std::chrono::steady_clock::now()).count())
+{
+  auto now = std::chrono::steady_clock::now;
+  auto start = now();
+  exec_func();
+  auto end = now();
+  return (end - start).count();
+}
 
 //------------------------------------------------------------------------------
 // Constructor
@@ -39,9 +55,23 @@ RadosMapTest::RadosMapTest()
   if (mCluster.connect())
     throw std::runtime_error("Cannot connect to cluster");
 
-  mMapSS = new rados::map<std::string, std::string>(mCluster, mConfig["pool"],
-                                                    mConfig["obj_name"],
-                                                    mConfig["cookie"]);
+  auto init_duration = timethis([&] {
+      try
+      {
+        mMapSS = new rados::map<std::string, std::string>(mCluster,
+                                                          mConfig["pool"],
+                                                          mConfig["obj_name"],
+                                                          mConfig["cookie"]);
+      }
+      catch (std::exception& e)
+      {
+        std::cerr << e.what() << std::endl;
+        exit(-1);
+      }
+    });
+
+    fprintf(stderr, "Initialization map size=%lu, time=%f microsec\n",
+          mMapSS->size(), init_duration / 1000.0);
 }
 
 //------------------------------------------------------------------------------
@@ -71,13 +101,13 @@ RadosMapTest::TearDown() {}
 void
 RadosMapTest::ReadConfiguration()
 {
-  std::string config_fn = (getenv(ENV_CONF_FILE) ? getenv(ENV_CONF_FILE) : "");
+  std::string config_fn {getenv(ENV_CONF_FILE) ? getenv(ENV_CONF_FILE) : ""};
 
   if (config_fn.empty())
     throw std::invalid_argument("configuration file not set");
 
   std::string key, value;
-  std::ifstream infile(config_fn);
+  std::ifstream infile {config_fn};
 
   while (infile >> key >> value)
   {
