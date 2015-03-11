@@ -47,7 +47,13 @@ auto timethis(std::function<void()> exec_func)
 RadosMapTest::RadosMapTest()
 {
   ReadConfiguration();
-  mCluster.init(mConfig["user"].c_str());
+
+  if (mCluster.init(mConfig["user"].c_str()))
+  {
+    std::string msg = "Error while initializing cluster for user ";
+    msg += mConfig["user"];
+    throw std::invalid_argument(msg);
+  }
 
   if (mCluster.conf_read_file(mConfig["ceph_config"].c_str()))
     throw std::invalid_argument("Error while reading configuration file");
@@ -70,7 +76,7 @@ RadosMapTest::RadosMapTest()
       }
     });
 
-    fprintf(stderr, "Initialization map size=%lu, time=%f microsec\n",
+  fprintf(stderr, "Initialization map size=%lu, time=%f microsec\n",
           mMapSS->size(), init_duration / 1000.0);
 }
 

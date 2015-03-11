@@ -408,6 +408,8 @@ namespace rados {
   std::pair<typename std::map<K, V>::iterator, bool>
   map<K, V>::insert(K key, V value)
   {
+    auto response = mMap.insert(std::make_pair(key, value));
+
     // Check local epoch matches remote epoch
     int ret {1};
     int prval_cmp;
@@ -435,21 +437,42 @@ namespace rados {
       buff_epoch.append(ToString<decltype(mEpoch)>(mEpoch + 1));
       omap_upd.insert(std::make_pair(OBJ_EPOCH_KEY, buff_epoch));
       wr_op.omap_set(omap_upd);
-
-      // Write changelog entry
       wr_op.append(chlog_data);
-      ret = mIoCtx.operate(mObjId, &wr_op);
+
+      // Execute atomic operations asynchrnously
+      librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
+      ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
+
+      if (ret)
+      {
+        fprintf(stderr, "Failed to schedule wr_aio for %s\n", __FUNCTION__);
+        wr_comp->release();
+        return std::make_pair(mMap.end(), false);
+      }
+
+      // Wait for completion and get result
+      wr_comp->wait_for_safe();
+      ret = wr_comp->get_return_value();
+      wr_comp->release();
 
       if (ret)
       {
         if (prval_cmp)
         {
           // Failed because of epoch missmatch - do an update and rerty
-          fprintf(stderr, "Failed insert becasue of epoch missmatch - retry\n");
+          fprintf(stderr, "Failed insert because of epoch missmatch - retry\n");
+
+          // Delete local insert if it was initially successful, if it wasn't
+          // it means the key was already in the map and we don't touch it
+          if (response.second)
+            mMap.erase(key);
 
           // Update map and retry
           if (!DoUpdate())
             return std::make_pair(mMap.end(), false);
+
+          // Retry insert on the updated local map
+          response = mMap.insert(std::make_pair(key, value));
         }
         else
         {
@@ -471,8 +494,7 @@ namespace rados {
     if (NeedsCompactification() && !DoCompactify())
       fprintf(stderr, "Failed compactification - retry\n");
 
-    // Insert into local map
-    return mMap.insert(std::make_pair(key, value));
+    return response;
   }
 
   //----------------------------------------------------------------------------
@@ -517,10 +539,23 @@ namespace rados {
       epoch_buff.append(ToString<decltype(mEpoch)>(mEpoch +  1));
       omap_upd.insert(std::make_pair(OBJ_EPOCH_KEY, epoch_buff));
       wr_op.omap_set(omap_upd);
-
-      // Write changelog entry
       wr_op.append(chlog_data);
-      ret = mIoCtx.operate(mObjId, &wr_op);
+
+      // Execute atomic operations asynchrnously
+      librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
+      ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
+
+      if (ret)
+      {
+        fprintf(stderr, "Failed to schedule wr_aio for %s\n", __FUNCTION__);
+        wr_comp->release();
+        return;
+      }
+
+      // Wait for completion and get result
+      wr_comp->wait_for_safe();
+      ret = wr_comp->get_return_value();
+      wr_comp->release();
 
       if (ret)
       {
@@ -606,8 +641,21 @@ namespace rados {
       rd_op.omap_cmp(omap_assert, &prval_cmp);
       rd_op.read(0, mChLogOff, &chlog_data, &prval_rd);
 
-      // Execute operations atomically
-      ret = mIoCtx.operate(mObjId, &rd_op, &rd_buff);
+      // Execute atomic operations asynchronously
+      librados::AioCompletion* rd_comp = librados::Rados::aio_create_completion();
+      ret = mIoCtx.aio_operate(mObjId, rd_comp, &rd_op, &rd_buff);
+
+      if (ret)
+      {
+        fprintf(stderr, "Failed to schedule rd_aio for %s\n", __FUNCTION__);
+        rd_comp->release();
+        return false;
+      }
+
+      // Wait for completion and get result
+      rd_comp->wait_for_complete();
+      ret = rd_comp->get_return_value();
+      rd_comp->release();
 
       if (ret)
       {
@@ -696,7 +744,22 @@ namespace rados {
         int prval_rd;
         librados::bufferlist chlog_data;
         rd_op.read(mChLogOff, psize - mChLogOff, &chlog_data, &prval_rd);
-        ret = mIoCtx.operate(mObjId, &rd_op, &rd_buff);
+
+        // Execute atomic operations asynchrnously
+        librados::AioCompletion* rd_comp = librados::Rados::aio_create_completion();
+        ret = mIoCtx.aio_operate(mObjId, rd_comp, &rd_op, &rd_buff);
+
+        if (ret)
+        {
+          fprintf(stderr, "Failed to schedule rd_aio for %s\n", __FUNCTION__);
+          rd_comp->release();
+          return false;
+        }
+
+        // Wait for completion and get result
+        rd_comp->wait_for_complete();
+        ret = rd_comp->get_return_value();
+        rd_comp->release();
 
         if (ret)
         {
@@ -790,7 +853,22 @@ namespace rados {
       epoch_buff.append(ToString((int) 0));
       omap_upd.insert(std::make_pair(OBJ_EPOCH_KEY, epoch_buff));
       wr_op.omap_set(omap_upd);
-      ret = mIoCtx.operate(mObjId, &wr_op);
+
+      // Execute atomic operations asynchronously
+      librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
+      ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
+
+      if (ret)
+      {
+        fprintf(stderr, "Failed to schedule wr_aio for %s\n", __FUNCTION__);
+        wr_comp->release();
+        return false;
+      }
+
+      // Wait for completion and get return value
+      wr_comp->wait_for_safe();
+      ret = wr_comp->get_return_value();
+      wr_comp->release();
 
       if (ret)
       {

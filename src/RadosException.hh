@@ -54,14 +54,15 @@ namespace rados {
     {
     }
 
-    const char* what() const noexcept
+    const char* what() noexcept
     {
-      std::string why = "Exception reason: ";
-      why += mReason;
-      return why.c_str();
+      mWhat = "Exception reason: ";
+      mWhat += mReason;
+      return mWhat.c_str();
     }
 
     std::string mReason;
+    std::string mWhat;
   };
 }
 #endif // __RADOSEXCEPTION_HH__

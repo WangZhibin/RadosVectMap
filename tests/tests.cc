@@ -82,7 +82,7 @@ TEST_F(RadosMapTest, CheckTemplateParam)
 //------------------------------------------------------------------------------
 TEST_F(RadosMapTest, InsertInMap)
 {
-  int start {261000};
+  int start {310000};
   int num_entries {1000};
   int end = start + num_entries;
   std::string key, val;
