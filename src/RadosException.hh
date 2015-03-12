@@ -1,10 +1,10 @@
 //------------------------------------------------------------------------------
-// File: RadosExceptioin.hh
+// File: RadosException.hh
 // Author: Elvin Sindrilaru <esindril@cern.ch>
 //------------------------------------------------------------------------------
 
 /*******************************************************************************
- * CephVectMap                                                                 *
+ * RadosVectMap                                                                *
  * Copyright (C) 2015 CERN/Switzerland                                         *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *

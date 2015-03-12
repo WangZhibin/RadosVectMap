@@ -4,7 +4,7 @@
 #------------------------------------------------------------------------------
 
 #*******************************************************************************
-#* CephVectMap                                                                 *
+#* RadosVectMap                                                                *
 #* Copyright (C) 2015 CERN/Switzerland                                         *
 #*                                                                             *
 #* This program is free software: you can redistribute it and/or modify        *
@@ -23,15 +23,15 @@
 
 include_directories(${LIBRADOS_INCLUDE_DIRS})
 
-set(CEPHVECTMAP_SRCS
+set(RADOSVECTMAP_SRCS
   RadosMap.cc)
 
 add_library(
-  CephVectMap SHARED
-  ${CEPHVECTMAP_SRCS})
+  RadosVectMap SHARED
+  ${RADOSVECTMAP_SRCS})
 
 target_link_libraries(
-  CephVectMap
+  RadosVectMap
   ${LIBRADOS_LIBRARIES})
   
   

@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------
 
 /*******************************************************************************
- * CephVectMap                                                                 *
+ * RadosVectMap                                                                *
  * Copyright (C) 2015 CERN/Switzerland                                         *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
@@ -200,8 +200,8 @@ namespace rados {
     static const std::string CHLOG_INSERT_OP;
     static const std::string CHLOG_ERASE_OP;
     //! Ratio between nuber of entries in the map and the nuber of entries in
-    //! changelog when a compactification is done
-    static const float COMPACTIFY_RATIO;
+    //! changelog when a compaction is done
+    static const float COMPACTION_RATIO;
 
     std::map<K, V> mMap; ///< local representation of the map
     std::string mObjId;  ///< object id that holds the map information
@@ -219,11 +219,11 @@ namespace rados {
     bool DoUpdate();
 
     //--------------------------------------------------------------------------
-    //! Compactify the changelog
+    //! Compaction of the changelog
     //!
-    //! @return true if compactification operation successful, otherwise false
+    //! @return true if compaction successful, otherwise false
     //--------------------------------------------------------------------------
-    bool DoCompactify();
+    bool DoCompaction();
 
     //--------------------------------------------------------------------------
     //! Apply change log contents to the local map
@@ -286,11 +286,11 @@ namespace rados {
     bool InitializeMap();
 
     //--------------------------------------------------------------------------
-    //! Decide if changlog need compactification
+    //! Decide if changlog needs compaction
     //!
-    //! @return true if changlog needs compactification, otherwise false
+    //! @return true if changlog needs compaction, otherwise false
     //--------------------------------------------------------------------------
-    bool NeedsCompactification() const;
+    bool NeedsCompaction() const;
 
   };
 
@@ -305,7 +305,7 @@ namespace rados {
   const std::string map< K, V>::CHLOG_ERASE_OP {"-"};
 
   template <typename K, typename V>
-  const float map<K, V>::COMPACTIFY_RATIO {.2};
+  const float map<K, V>::COMPACTION_RATIO {.2};
 
 
   //----------------------------------------------------------------------------
@@ -439,7 +439,7 @@ namespace rados {
       wr_op.omap_set(omap_upd);
       wr_op.append(chlog_data);
 
-      // Execute atomic operations asynchrnously
+      // Execute atomic operations asynchronously
       librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
       ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
 
@@ -490,9 +490,9 @@ namespace rados {
       }
     }
 
-    // Everything is up to date, do compactification if necessary
-    if (NeedsCompactification() && !DoCompactify())
-      fprintf(stderr, "Failed compactification - retry\n");
+    // Everything is up to date, do compaction if necessary
+    if (NeedsCompaction() && !DoCompaction())
+      fprintf(stderr, "Failed compaction - retry\n");
 
     return response;
   }
@@ -510,13 +510,12 @@ namespace rados {
   // Erase entry pointed by key
   //----------------------------------------------------------------------------
   template <typename K, typename V>
-  void
-  map<K, V>::erase(K key)
+  void map<K, V>::erase(K key)
   {
     int ret {1};
     int prval_cmp;
 
-    // Prepare to changelog entry
+    // Prepare the changelog entry
     std::ostringstream oss;
     oss << CHLOG_ERASE_OP << " "
         << ToString(key)  << std::endl;
@@ -541,7 +540,7 @@ namespace rados {
       wr_op.omap_set(omap_upd);
       wr_op.append(chlog_data);
 
-      // Execute atomic operations asynchrnously
+      // Execute atomic operations asynchronously
       librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
       ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
 
@@ -587,9 +586,9 @@ namespace rados {
     // Local remove
     mMap.erase(key);
 
-    // Everything is up to date, do compactification if necessary
-    if (NeedsCompactification() && !DoCompactify())
-      fprintf(stderr, "Failed compactification - retry\n");
+    // Everything is up to date, do compaction if necessary
+    if (NeedsCompaction() && !DoCompaction())
+      fprintf(stderr, "Failed compaction - retry\n");
   }
 
   //----------------------------------------------------------------------------
@@ -745,7 +744,7 @@ namespace rados {
         librados::bufferlist chlog_data;
         rd_op.read(mChLogOff, psize - mChLogOff, &chlog_data, &prval_rd);
 
-        // Execute atomic operations asynchrnously
+        // Execute atomic operations asynchronously
         librados::AioCompletion* rd_comp = librados::Rados::aio_create_completion();
         ret = mIoCtx.aio_operate(mObjId, rd_comp, &rd_op, &rd_buff);
 
@@ -791,12 +790,12 @@ namespace rados {
       }
       else
       {
-        // Update after compactification done by someone else - meaning a full
+        // Update after compaction done by someone else - meaning a full
         // reinitalisation of both the map and connected data structures
         if (!InitializeMap())
         {
           fprintf(stderr, "Fatal error while re-initialising the map after "
-                  "a compactification operation\n");
+                  "a compaction operation\n");
           return false;
         }
         else
@@ -808,12 +807,12 @@ namespace rados {
   }
 
   //----------------------------------------------------------------------------
-  // Compactify the changelog
+  // Compact the changelog
   //----------------------------------------------------------------------------
   template <typename K, typename V>
-  bool map<K, V>::DoCompactify()
+  bool map<K, V>::DoCompaction()
   {
-    fprintf(stdout, "Do compactify, init chlog size=%lu\n", mChLogOff);
+    fprintf(stdout, "Do compaction, init chlog size=%lu\n", mChLogOff);
     int ret {1};
     bool ret_upd {false};
     std::ostringstream oss_dump;
@@ -843,7 +842,7 @@ namespace rados {
       omap_assert[OBJ_EPOCH_KEY] = std::make_pair(epoch_buff, LIBRADOS_CMPXATTR_OP_EQ);
       wr_op.omap_cmp(omap_assert, &prval_cmp);
 
-      // Compactify changelog
+      // Compact changelog
       wr_op.truncate(0);
       wr_op.write_full(chlog_data);
 
@@ -874,13 +873,13 @@ namespace rados {
       {
         if (prval_cmp)
         {
-          fprintf(stderr, "Failed compactification because of epoch missmatch - "
+          fprintf(stderr, "Failed compaction because of epoch missmatch - "
                   "retry\n");
           continue;
         }
         else
         {
-          fprintf(stderr, "Fatal error during compactification\n");
+          fprintf(stderr, "Fatal error during compaction\n");
           return false;;
         }
       }
@@ -889,14 +888,14 @@ namespace rados {
         mEpoch = 0;
         mChLogNumLines = mMap.size();
         mChLogOff = chlog_data.length();
-        fprintf(stdout, "Do compactify, final chlog size=%lu\n", mChLogOff);
+        fprintf(stdout, "Do compaction, final chlog size=%lu\n", mChLogOff);
         return true;
       }
     }
 
     if (!ret_upd)
     {
-      fprintf(stderr, "Failed update during compactification.\n");
+      fprintf(stderr, "Failed update during compaction.\n");
       return false;
     }
 
@@ -937,7 +936,16 @@ namespace rados {
         //fprintf(stderr, "Action=%s, key=%s, value=%s\n", action.c_str(),
         //        skey.c_str(), svalue.c_str());
         value = FromString<V>(svalue);
-        (void) mMap.insert(std::make_pair(key, value));
+        // Note: whatever comes from the changelog is considered as the true
+        // state, therefore it overwrites the local map if conflict exists
+        auto pair = std::make_pair(key, value);
+        auto ret_insert = mMap.insert(pair);
+
+        if (!ret_insert.second)
+        {
+          mMap.erase(key);
+          (void) mMap.insert(pair);
+        }
       }
       else if (action == CHLOG_ERASE_OP)
       {
@@ -1045,12 +1053,12 @@ namespace rados {
   }
 
   //----------------------------------------------------------------------------
-  // Decide if changlog need compactification
+  // Decide if changlog need compaction
   //----------------------------------------------------------------------------
   template <typename K, typename V>
-  bool map<K, V>::NeedsCompactification() const
+  bool map<K, V>::NeedsCompaction() const
   {
-    return ((float) mMap.size() / mChLogNumLines <= COMPACTIFY_RATIO);
+    return ((float) mMap.size() / mChLogNumLines <= COMPACTION_RATIO);
   }
 
 }
