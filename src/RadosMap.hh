@@ -21,8 +21,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.        *
  ******************************************************************************/
 
-#ifndef __RADOSMAP_HH__
-#define __RADOSMAP_HH__
+#ifndef __RADOS_MAP_HH__
+#define __RADOS_MAP_HH__
 
 #include <map>
 #include <cerrno>
@@ -67,7 +67,8 @@ namespace rados {
         const std::string& pool_name,
         const std::string& name,
         const std::string& cookie,
-        bool persist_obj = true) noexcept(false);
+        bool persist_obj = true,
+        bool is_async = false) noexcept(false);
 
 
     //--------------------------------------------------------------------------
@@ -192,6 +193,14 @@ namespace rados {
     template <typename W>
     W FromString(const std::string& sval) const;
 
+    //--------------------------------------------------------------------------
+    //! Insert complete callback
+    //!
+    //! @param comp librados completion object
+    //! @param arg arguments of the callback
+    //--------------------------------------------------------------------------
+    //static void insert_cb(librados::completion_t comp, void* arg);
+
 
   private:
 
@@ -207,9 +216,18 @@ namespace rados {
     std::string mObjId;  ///< object id that holds the map information
     librados::IoCtx mIoCtx; ///< io context
     bool mPersistObj; /// < persist backend object (CEPH)
+    bool mIsAsync; ///< map is in async mode (weak consistency) - single user
     uint64_t mEpoch; ///< current epoch of the local map
     uint64_t mChLogOff; ///< changelog offset of followed updates
     uint64_t mChLogNumLines; ///< number of entries in the changelog file
+
+    //--------------------------------------------------------------------------
+    //! Insert complete callback
+    //!
+    //! @param func AioComplitionImpl object
+    //! @param arg arguments of the callback complition
+    //--------------------------------------------------------------------------
+    static void insert_complete_cb(librados::completion_t func, void* arg);
 
     //--------------------------------------------------------------------------
     //! Update the local contents of the map and the epoch if necessary
@@ -316,8 +334,10 @@ namespace rados {
                  const std::string& pool_name,
                  const std::string& name,
                  const std::string& cookie,
-                 bool persist_obj) noexcept(false):
+                 bool persist_obj,
+                 bool is_async) noexcept(false):
     mPersistObj(persist_obj),
+    mIsAsync(is_async),
     mEpoch(0),
     mChLogOff(0),
     mChLogNumLines(0)
@@ -431,16 +451,22 @@ namespace rados {
       omap_assert[OBJ_EPOCH_KEY] = std::make_pair(epoch_buff, LIBRADOS_CMPXATTR_OP_EQ);
       wr_op.omap_cmp(omap_assert, &prval_cmp);
 
-      // Update epoch
+      // Update epoch and changelog entry if local insert successful
       std::map<std::string, librados::bufferlist> omap_upd;
       librados::bufferlist buff_epoch;
-      buff_epoch.append(ToString<decltype(mEpoch)>(mEpoch + 1));
-      omap_upd.insert(std::make_pair(OBJ_EPOCH_KEY, buff_epoch));
-      wr_op.omap_set(omap_upd);
-      wr_op.append(chlog_data);
+
+      if (response.second)
+      {
+        buff_epoch.append(ToString<decltype(mEpoch)>(mEpoch + 1));
+        omap_upd.insert(std::make_pair(OBJ_EPOCH_KEY, buff_epoch));
+        wr_op.omap_set(omap_upd);
+        wr_op.append(chlog_data);
+      }
 
       // Execute atomic operations asynchronously
-      librados::AioCompletion* wr_comp = librados::Rados::aio_create_completion();
+      std::string* arg {new std::string("testing ...")};
+      librados::AioCompletion* wr_comp =
+        librados::Rados::aio_create_completion(arg, nullptr, insert_complete_cb);
       ret = mIoCtx.aio_operate(mObjId, wr_comp, &wr_op);
 
       if (ret)
@@ -451,7 +477,9 @@ namespace rados {
       }
 
       // Wait for completion and get result
-      wr_comp->wait_for_safe();
+      // TODO: review this -> switch to safe rather than complete
+      //wr_comp->wait_for_safe();
+      wr_comp->wait_for_complete_and_cb();
       ret = wr_comp->get_return_value();
       wr_comp->release();
 
@@ -483,10 +511,13 @@ namespace rados {
       }
       else
       {
-        // Update the local view of the changelog
-        mEpoch++;
-        mChLogNumLines++;
-        mChLogOff += chlog_data.length();
+        // Update the local view of the changelog if insert successful
+        if (response.second)
+        {
+          mEpoch++;
+          mChLogNumLines++;
+          mChLogOff += chlog_data.length();
+        }
       }
     }
 
@@ -1061,6 +1092,20 @@ namespace rados {
     return ((float) mMap.size() / mChLogNumLines <= COMPACTION_RATIO);
   }
 
+
+  //----------------------------------------------------------------------------
+  // Insert complete callback
+  //----------------------------------------------------------------------------
+  template <typename K, typename V>
+  void map<K, V>::insert_complete_cb(librados::completion_t func, void* arg)
+  {
+    std::string* msg = static_cast<std::string*>(arg);
+    librados::AioCompletion comp {static_cast<librados::AioCompletionImpl*>(func)};
+    int ret = comp.get_return_value();
+    fprintf(stderr, "%s: Argument=%s and return_val=%i\n", __FUNCTION__,
+            msg->c_str(), ret);
+    delete msg;
+  }
 }
 
-#endif //__RADOSMAP_HH__
+#endif //__RADOS_MAP_HH__
