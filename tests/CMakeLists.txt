@@ -26,17 +26,22 @@ include_directories(
   ${GTEST_INCLUDE_DIRS})
 
 add_executable(
-   run_tests 
+   run_tests
    tests.cc
-   RadosMapTest.cc 
-   RadosMapTest.hh
-   test.conf)
+   RadosMapTest.cc)
 
 target_link_libraries(
   run_tests
+  RadosVectMap
   ${GTEST_LIBRARIES}
   ${LIBRADOS_LIBRARIES})
 
 add_test(
-  NAME AllTestsRadosMap 
+  NAME AllTestsRadosMap
   COMMAND run_tests --conf=${CMAKE_SOURCE_DIR}/tests/test.conf)
+
+install(
+  FILES test.conf
+  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}
+  PERMISSIONS OWNER_READ OWNER_WRITE
+              GROUP_READ WORLD_READ)

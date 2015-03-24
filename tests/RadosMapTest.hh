@@ -21,8 +21,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.        *
  ******************************************************************************/
 
-#ifndef __RADOSMAPTEST_HH__
-#define __RADOSMAPTEST_HH__
+#ifndef __RADOS_MAP_TEST_HH__
+#define __RADOS_MAP_TEST_HH__
 
 #include <gtest/gtest.h>
 #include <rados/librados.hpp>
@@ -106,4 +106,4 @@ std::pair<double, double> compute_statistics(const Container& c)
 }
 
 
-#endif // __RADOSMAPTEST_HH__
+#endif // __RADOS_MAP_TEST_HH__

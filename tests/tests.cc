@@ -28,7 +28,6 @@
 #include <functional>
 #include <gtest/gtest.h>
 #include "RadosMapTest.hh"
-#include "src/RadosMap.hh"
 
 
 //------------------------------------------------------------------------------
@@ -44,7 +43,7 @@ TEST_F(RadosMapTest, DISABLED_ListMap)
 //------------------------------------------------------------------------------
 // Check for supported template parameter types
 //------------------------------------------------------------------------------
-TEST_F(RadosMapTest, CheckTemplateParam)
+TEST_F(RadosMapTest, DISABLED_CheckTemplateParam)
 {
   try
   {
@@ -82,8 +81,8 @@ TEST_F(RadosMapTest, CheckTemplateParam)
 //------------------------------------------------------------------------------
 TEST_F(RadosMapTest, InsertInMap)
 {
-  int start {310000};
-  int num_entries {1000};
+  int start {330020};
+  int num_entries {1};
   int end = start + num_entries;
   std::string key, val;
   decltype(mMapSS->insert(key, val)) ret_pair;
@@ -112,7 +111,7 @@ TEST_F(RadosMapTest, InsertInMap)
 //------------------------------------------------------------------------------
 // Erase elements from map
 //------------------------------------------------------------------------------
-TEST_F(RadosMapTest, EraseFromMap)
+TEST_F(RadosMapTest, DISABLED_EraseFromMap)
 {
   int num_entries {1000};
   std::vector<double> tm_erase;
