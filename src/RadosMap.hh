@@ -193,15 +193,6 @@ namespace rados {
     template <typename W>
     W FromString(const std::string& sval) const;
 
-    //--------------------------------------------------------------------------
-    //! Insert complete callback
-    //!
-    //! @param comp librados completion object
-    //! @param arg arguments of the callback
-    //--------------------------------------------------------------------------
-    //static void insert_cb(librados::completion_t comp, void* arg);
-
-
   private:
 
     //! Declare class-wide constants
